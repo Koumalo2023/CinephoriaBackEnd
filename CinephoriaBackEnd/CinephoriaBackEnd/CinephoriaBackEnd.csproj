@@ -6,6 +6,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UserSecretsId>31593b12-aa64-4200-b20f-5771c12d5d58</UserSecretsId>
     <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
+    <RunPostBuildEvent>Always</RunPostBuildEvent>
+    <GenerateDocumentationFile>True</GenerateDocumentationFile>
   </PropertyGroup>
 
   <ItemGroup>
