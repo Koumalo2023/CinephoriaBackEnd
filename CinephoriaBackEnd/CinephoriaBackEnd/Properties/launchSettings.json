@@ -34,7 +34,10 @@
       "launchUrl": "{Scheme}://{ServiceHost}:{ServicePort}/swagger",
       "environmentVariables": {
         "ASPNETCORE_HTTPS_PORTS": "8081",
-        "ASPNETCORE_HTTP_PORTS": "8080"
+        "ASPNETCORE_HTTP_PORTS": "8080",
+        "ConnectionStrings__PostgreSql": "Host=prodhost;Database=CinepholiaDB_Prod;AppUsername=prodUser;Password=Tefong006",
+        "MongoDbSettings__ConnectionString": "mongodb://prodhost:27017",
+        "MongoDbSettings__DatabaseName": "CinepholiaIncidentDB_Prod"
       },
       "publishAllPorts": true,
       "useSSL": true

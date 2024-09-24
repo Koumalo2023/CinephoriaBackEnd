@@ -5,7 +5,19 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+// Ajouter les fichiers de configuration (appsettings.json et appsettings.{Environment}.json)
+builder.Configuration
+    .SetBasePath(Directory.GetCurrentDirectory())
+    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+    .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true)
+    .AddEnvironmentVariables();
+
+// En développement, ajouter les secrets utilisateurs
+if (builder.Environment.IsDevelopment())
+{
+    builder.Configuration.AddUserSecrets<Program>();
+}
+
 
 
 // Ajout de CinepholiaDbContext pour la base de données PostgreSQL
