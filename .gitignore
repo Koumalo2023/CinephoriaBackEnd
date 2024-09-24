@@ -22,7 +22,7 @@
 # Dossier .vs de Visual Studio
 .vs/
 
-# Fichiers spécifiques à NuGet
+# Fichiers spï¿½cifiques ï¿½ NuGet
 .nuget/
 *.nuget.dgspec.json
 *.nuget.cache
@@ -37,8 +37,8 @@
 docker-compose.yml
 docker-compose.override.yml
 *.dockerignore
-**/Dockerfile
-!Dockerfile* # Autoriser les Dockerfiles spécifiques
+#**/Dockerfile
+#!Dockerfile* # Autoriser les Dockerfiles spï¿½cifiques
 
 # ASP.NET Core
 **/appsettings.Development.json
