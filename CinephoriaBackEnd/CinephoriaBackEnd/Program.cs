@@ -2,6 +2,8 @@ using CinephoriaBackEnd.Configurations;
 using CinephoriaBackEnd;
 using CinephoriaBackEnd.Data;
 using Microsoft.EntityFrameworkCore;
+using MongoDB.Driver;
+using CinephoriaBackEnd.Configurations.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,7 +19,6 @@ if (builder.Environment.IsDevelopment())
 {
     builder.Configuration.AddUserSecrets<Program>();
 }
-
 
 
 // Ajout de CinepholiaDbContext pour la base de données PostgreSQL
@@ -38,6 +39,10 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+
+
+// Adding CORS
+builder.Services.AddCustomSecurity(builder.Configuration);
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -50,7 +55,7 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 app.UseAuthorization();
-
+app.UseCors("Cinephoria_CORS_policy");
 app.MapControllers();
 
 app.Run();
