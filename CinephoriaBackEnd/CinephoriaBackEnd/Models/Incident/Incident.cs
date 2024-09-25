@@ -1,29 +1,39 @@
 ﻿using System.ComponentModel.DataAnnotations.Schema;
 using System.ComponentModel.DataAnnotations;
+using MongoDB.Bson.Serialization.Attributes;
+using MongoDB.Bson;
 
 namespace CinephoriaBackEnd.Models
 {
     public class Incident
     {
-        [Key]
-        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
-        public int Id { get; set; }
+        [BsonId] // Utilisation de l'identifiant MongoDB
+        [BsonRepresentation(BsonType.ObjectId)]
+        public string IncidentId { get; set; }  // L'identifiant de l'incident dans MongoDB
 
-        public int RoomId { get; set; }
+        [BsonElement("RoomId")]
+        public int RoomId { get; set; } 
 
+        [BsonElement("Description")]
         public string Description { get; set; }
 
-        public int ReportedBy { get; set; }
+        [BsonElement("ReporterId")]
+        public string ReporterId { get; set; }
 
+        [BsonElement("Status")]
         public string Status { get; set; }
 
+        [BsonElement("CreatedAt")]
         public DateTime CreatedAt { get; set; }
 
+        [BsonElement("UpdatedAt")]
         public DateTime UpdatedAt { get; set; }
 
-        // Navigation property
-        public Room Room { get; set; }
+        
+        [BsonIgnore]
+        public Room Room { get; set; } 
 
+        [BsonIgnore]
         public AppUser Reporter { get; set; }
     }
 
