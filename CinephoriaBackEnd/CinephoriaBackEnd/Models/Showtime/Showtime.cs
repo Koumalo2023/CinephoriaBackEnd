@@ -7,25 +7,34 @@ namespace CinephoriaBackEnd.Models
     {
         [Key]
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
-        public int Id { get; set; }
+        public int ShowtimeId { get; set; }
 
+        [Required]
         public int MovieId { get; set; }
 
+        [Required]
         public int RoomId { get; set; }
 
+        [Required]
         public DateTime StartTime { get; set; }
 
+        [Required]
         public DateTime EndTime { get; set; }
 
+        [Required]
         public string Quality { get; set; }
 
+        [Required]
         public float Price { get; set; }
 
+        [Required]
         public int AvailableSeats { get; set; }
 
         // Navigation properties
+        [ForeignKey("MovieId")]
         public Movie Movie { get; set; }
 
+        [ForeignKey("RoomId")]
         public Room Room { get; set; }
 
         public ICollection<Reservation> Reservations { get; set; }
