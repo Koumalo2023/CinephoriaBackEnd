@@ -28,7 +28,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Folder Include="Repository\Configs\" />
     <Folder Include="Repository\EntityFramwork\" />
     <Folder Include="Repository\Tables\" />
     <Folder Include="Services\" />
