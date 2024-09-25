@@ -35,6 +35,15 @@ builder.Services.Configure<MongoDbSettings>(
 // Ajout de MongoDbContext en tant que service Singleton
 builder.Services.AddSingleton<MongoDbContext>();
 
+// Gérer les injections de dépendances
+builder.Services.AddDbServiceInjection();
+
+
+//Configuration d'AutoMapper
+builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
+
+
+
 
 builder.Services.AddControllers();
 
