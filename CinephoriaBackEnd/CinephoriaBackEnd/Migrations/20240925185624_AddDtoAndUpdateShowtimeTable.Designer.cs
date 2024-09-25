@@ -3,6 +3,7 @@ using System;
 using CinephoriaBackEnd.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace CinephoriaBackEnd.Migrations
 {
     [DbContext(typeof(CinephoriaDbContext))]
-    partial class CinephoriaDbContextModelSnapshot : ModelSnapshot
+    [Migration("20240925185624_AddDtoAndUpdateShowtimeTable")]
+    partial class AddDtoAndUpdateShowtimeTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

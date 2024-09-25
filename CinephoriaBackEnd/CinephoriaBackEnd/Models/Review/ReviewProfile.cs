@@ -1,4 +1,4 @@
-﻿namespace CinephoriaBackEnd.Models.Review
+﻿namespace CinephoriaBackEnd.Models
 {
     using AutoMapper;
 
