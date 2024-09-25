@@ -1,24 +1,22 @@
-﻿using System.ComponentModel.DataAnnotations.Schema;
-using System.ComponentModel.DataAnnotations;
-using MongoDB.Bson.Serialization.Attributes;
+﻿using MongoDB.Bson.Serialization.Attributes;
 using MongoDB.Bson;
 
 namespace CinephoriaBackEnd.Models
 {
     public class Incident
     {
-        [BsonId] // Utilisation de l'identifiant MongoDB
+        [BsonId] 
         [BsonRepresentation(BsonType.ObjectId)]
-        public string IncidentId { get; set; }  // L'identifiant de l'incident dans MongoDB
+        public string Id { get; set; }
 
         [BsonElement("RoomId")]
-        public int RoomId { get; set; } 
+        public int RoomId { get; set; }
 
         [BsonElement("Description")]
         public string Description { get; set; }
 
         [BsonElement("ReporterId")]
-        public string ReporterId { get; set; }
+        public string ReporterId { get; set; } 
 
         [BsonElement("Status")]
         public string Status { get; set; }
@@ -29,9 +27,9 @@ namespace CinephoriaBackEnd.Models
         [BsonElement("UpdatedAt")]
         public DateTime UpdatedAt { get; set; }
 
-        
+        // Pas de navigation automatique en MongoDB
         [BsonIgnore]
-        public Room Room { get; set; } 
+        public Room Room { get; set; }
 
         [BsonIgnore]
         public AppUser Reporter { get; set; }
