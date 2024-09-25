@@ -1,7 +1,6 @@
 ﻿using Amazon.Util.Internal;
 using CinephoriaBackEnd.Models;
 using CinephoriaBackEnd.Repository;
-using CinephoriaBackEnd.Repository.Configs;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
