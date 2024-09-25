@@ -7,17 +7,23 @@ namespace CinephoriaBackEnd.Configurations
     {
         public static void AddDbServiceInjection(this IServiceCollection services)
         {
-            services.AddHttpContextAccessor(); // Pour accéder au contexte HTTP si nécessaire
+            // Pour accéder au contexte HTTP si nécessaire
+            services.AddHttpContextAccessor();
 
-            // Ajouter la gestion des utilisateurs et des connexions pour MenapUser
-            //services.AddTransient<UserManager<MenapUser>>();
-            //services.AddTransient<SignInManager<MenapUser>>();
+            // Ajouter la gestion des utilisateurs et des connexions pour utilisateurs
+            //services.AddTransient<UserManager<AppUser>>();
+            //services.AddTransient<SignInManager<AppUser>>();
 
             // Injection du UoW (Unit of Work) pour Entity Framework
             services.AddTransient<IUnitOfWorkPostgres, UnitOfWorkPostgres>();
             services.AddTransient<IUnitOfWorkMongoDb, UnitOfWorkMongoDb>();
 
-            // Vous pouvez ajouter des services supplémentaires ici
+            // Injection des répository pour maintenir la testabilité et la maintenabilité du code
+            services.AddTransient<IIncidentRepository, IncidentRepository>();
+            services.AddTransient<IShowtimeRepository, ShowtimeRepository>();
+            services.AddTransient<IMovieRepository, MovieRepository>();
+            services.AddTransient<IUserRepository, UserRepository>();
+            services.AddTransient<IReservationRepository, ReservationRepository>();
         }
     }
 

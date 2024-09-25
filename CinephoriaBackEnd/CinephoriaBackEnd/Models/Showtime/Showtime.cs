@@ -29,14 +29,17 @@ namespace CinephoriaBackEnd.Models
 
         [Required]
         public int AvailableSeats { get; set; }
+  
+        public string AppUserId { get; set; } 
 
-        // Navigation properties
         [ForeignKey("MovieId")]
         public Movie Movie { get; set; }
 
         [ForeignKey("RoomId")]
         public Room Room { get; set; }
 
+        [ForeignKey("AppUserId")] 
+        public AppUser AppUser { get; set; } 
         public ICollection<Reservation> Reservations { get; set; }
     }
 
