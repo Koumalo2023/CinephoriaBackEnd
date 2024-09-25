@@ -2,7 +2,7 @@
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Microsoft.EntityFrameworkCore;
 
-namespace CinephoriaBackEnd.Repository.Configs
+namespace CinephoriaBackEnd.Repository
 {
     public class ShowtimeConfig : IEntityTypeConfiguration<Showtime>
     {
