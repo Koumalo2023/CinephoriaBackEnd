@@ -7,25 +7,30 @@ namespace CinephoriaBackEnd.Models
     {
         [Key]
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
-        public int Id { get; set; }
+        public int ReviewId { get; set; }
 
-        public int MovieId { get; set; }
+        [Required]
+        public int MovieId { get; set; } // Foreign Key
 
-        public int UserId { get; set; }
+        [Required]
+        public string AppUserId { get; set; } // Foreign Key
 
+        [Required]
         public float Rating { get; set; }
 
+        [Required]
         public string Comment { get; set; }
 
         public bool Approved { get; set; }
 
         public DateTime CreatedAt { get; set; }
-
         public DateTime UpdatedAt { get; set; }
 
         // Navigation properties
+        [ForeignKey("MovieId")]
         public Movie Movie { get; set; }
 
+        [ForeignKey("AppUserId")]
         public AppUser AppUser { get; set; }
     }
 
