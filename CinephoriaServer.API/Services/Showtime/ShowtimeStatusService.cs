@@ -27,7 +27,7 @@ namespace CinephoriaServer.API.Services
         {
             try
             {
-                var now = DateTime.Now;
+                var now = DateTime.UtcNow;
                 _logger.LogInformation("Début de la mise à jour automatique des statuts des séances à {Now}", now);
 
                 var showtimes = await _unitOfWork.Showtimes.GetShowtimesForStatusUpdateAsync();
@@ -46,11 +46,11 @@ namespace CinephoriaServer.API.Services
                         // Mettre à jour les heures réelles si nécessaire
                         if (newStatus == EnumConfig.ShowtimeStatus.Ongoing && showtime.ActualStartTime == null)
                         {
-                            showtime.ActualStartTime = now;
+                            showtime.ActualStartTime = DateTime.SpecifyKind(now, DateTimeKind.Utc);
                         }
                         else if (newStatus == EnumConfig.ShowtimeStatus.Completed && showtime.ActualEndTime == null)
                         {
-                            showtime.ActualEndTime = now;
+                            showtime.ActualEndTime = DateTime.SpecifyKind(now, DateTimeKind.Utc);
                         }
 
                         await _unitOfWork.Showtimes.UpdateAsync(showtime);
