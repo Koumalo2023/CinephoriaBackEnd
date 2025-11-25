@@ -1,0 +1,205 @@
+﻿<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confirmation d'inscription - Cinephoria</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f8f9fa;
+            margin: 0;
+            padding: 0;
+            color: #333;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            padding: 30px 20px;
+            text-align: center;
+            color: white;
+        }
+
+        .logo {
+            font-size: 32px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            letter-spacing: 2px;
+        }
+
+        .tagline {
+            font-size: 14px;
+            opacity: 0.8;
+            margin: 0;
+        }
+
+        .content {
+            padding: 40px 30px;
+        }
+
+        .welcome-title {
+            color: #1a1a2e;
+            font-size: 24px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .message {
+            line-height: 1.6;
+            margin-bottom: 30px;
+            text-align: center;
+            color: #555;
+        }
+
+        .button-container {
+            text-align: center;
+            margin: 30px 0;
+        }
+
+        .confirm-button {
+            display: inline-block;
+            padding: 15px 30px;
+            background: linear-gradient(135deg, #e63946 0%, #f4a261 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 16px;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            box-shadow: 0 4px 15px rgba(230, 57, 70, 0.3);
+        }
+
+        .confirm-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(230, 57, 70, 0.4);
+        }
+
+        .link-container {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .manual-link {
+            word-break: break-all;
+            color: #e63946;
+            text-decoration: none;
+            font-size: 14px;
+        }
+
+        .footer {
+            background-color: #1a1a2e;
+            color: white;
+            padding: 30px 20px;
+            text-align: center;
+        }
+
+        .footer-text {
+            font-size: 12px;
+            opacity: 0.8;
+            margin: 5px 0;
+        }
+
+        .social-links {
+            margin: 20px 0;
+        }
+
+        .social-link {
+            color: white;
+            text-decoration: none;
+            margin: 0 10px;
+            font-size: 14px;
+        }
+
+        .features {
+            display: flex;
+            justify-content: space-around;
+            margin: 30px 0;
+            text-align: center;
+        }
+
+        .feature {
+            flex: 1;
+            padding: 0 15px;
+        }
+
+        .feature-icon {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        .feature-text {
+            font-size: 12px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">🎬 CINEPHORIA</div>
+            <p class="tagline">Votre passion pour le cinéma, notre engagement</p>
+        </div>
+
+        <div class="content">
+            <h1 class="welcome-title">Bienvenue dans l'aventure Cinephoria !</h1>
+            
+            <p class="message">
+                Nous sommes ravis de vous accueillir dans notre communauté de passionnés de cinéma. 
+                Pour commencer votre exploration et profiter de toutes nos fonctionnalités, 
+                veuillez confirmer votre adresse email en cliquant sur le bouton ci-dessous.
+            </p>
+
+            <div class="button-container">
+                <a href="{{ConfirmationLink}}" class="confirm-button">
+                    Confirmer mon adresse email
+                </a>
+            </div>
+
+            <div class="link-container">
+                <p style="margin-bottom: 10px; color: #666; font-size: 14px;">
+                    Si le bouton ne fonctionne pas, copiez et collez ce lien dans votre navigateur :
+                </p>
+                <a href="{{ConfirmationLink}}" class="manual-link">{{ConfirmationLink}}</a>
+            </div>
+
+            <div class="features">
+                <div class="feature">
+                    <div class="feature-icon">🎭</div>
+                    <p class="feature-text">Découvrez des milliers de films</p>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon">⭐</div>
+                    <p class="feature-text">Notez et commentez vos films préférés</p>
+                </div>
+                <div class="feature">
+                    <div class="feature-icon">🎟️</div>
+                    <p class="feature-text">Réservation de séances simplifiée</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <div class="social-links">
+                <a href="#" class="social-link">Facebook</a>
+                <a href="#" class="social-link">Twitter</a>
+                <a href="#" class="social-link">Instagram</a>
+            </div>
+            <p class="footer-text">© 2024 Cinephoria. Tous droits réservés.</p>
+            <p class="footer-text">Cet email a été envoyé automatiquement, merci de ne pas y répondre.</p>
+            <p class="footer-text">Si vous n'avez pas créé de compte, veuillez ignorer cet email.</p>
+        </div>
+    </div>
+</body>
+</html>
