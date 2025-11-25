@@ -1,0 +1,28 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CinephoriaServer.API", "CinephoriaServer.API\CinephoriaServer.API.csproj", "{5EA11E37-D6B3-4741-A8D7-A2B36986D0D6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CinephoriaServer.Tests", "CinephoriaServer.Tests\CinephoriaServer.Tests.csproj", "{B81F31C0-E293-42ED-A4C1-86DBE0FAD601}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{5EA11E37-D6B3-4741-A8D7-A2B36986D0D6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5EA11E37-D6B3-4741-A8D7-A2B36986D0D6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5EA11E37-D6B3-4741-A8D7-A2B36986D0D6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5EA11E37-D6B3-4741-A8D7-A2B36986D0D6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B81F31C0-E293-42ED-A4C1-86DBE0FAD601}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B81F31C0-E293-42ED-A4C1-86DBE0FAD601}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B81F31C0-E293-42ED-A4C1-86DBE0FAD601}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B81F31C0-E293-42ED-A4C1-86DBE0FAD601}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
