@@ -1,6 +1,0 @@
-@CinephoriaBackEnd_HostAddress = http://localhost:5223
-
-GET {{CinephoriaBackEnd_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###
