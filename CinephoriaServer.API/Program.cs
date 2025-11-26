@@ -4,16 +4,20 @@ using CinephoriaServer.API.Data;
 using CinephoriaServer.API.Models.PostgresqlDb;
 using CinephoriaServer.API.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore; 
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MongoDB.Driver;
+using Npgsql;
 using Serilog;
 using System.Reflection;
 using System.Text;
+using System.Text.Json;
 
 
 
@@ -31,7 +35,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Configuration
     .SetBasePath(Directory.GetCurrentDirectory())
     .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
-    .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true)
+    .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: true)
     .AddEnvironmentVariables()
     .AddUserSecrets<Program>(optional: true);
 
@@ -45,20 +49,29 @@ Log.Logger = new LoggerConfiguration()
 builder.Host.UseSerilog();
 
 // Configuration de la base de données
+var connectionString = builder.Configuration.GetConnectionString("PostgreSQL") ??
+                      builder.Configuration.GetConnectionString("PostgreSql") ??
+                      builder.Configuration.GetConnectionString("PostgreSqlProd");
+
+if (string.IsNullOrEmpty(connectionString))
+{
+    throw new InvalidOperationException("Connection string 'PostgreSQL' not found.");
+}
+
 if (builder.Environment.IsDevelopment())
 {
     builder.Services.AddDbContext<CinephoriaDbContext>(options =>
-        options.UseNpgsql(builder.Configuration.GetConnectionString("PostgreSql"),
+        options.UseNpgsql(connectionString,
         npgsqlOptions => npgsqlOptions.EnableRetryOnFailure())
-               .EnableSensitiveDataLogging() 
-               .LogTo(Console.WriteLine, LogLevel.Information)); 
+               .EnableSensitiveDataLogging()
+               .LogTo(Console.WriteLine, LogLevel.Information));
 }
 else
 {
     builder.Services.AddDbContext<CinephoriaDbContext>(options =>
-        options.UseNpgsql(builder.Configuration.GetConnectionString("PostgreSqlProd"),
+        options.UseNpgsql(connectionString,
         npgsqlOptions => npgsqlOptions.EnableRetryOnFailure())
-               .EnableSensitiveDataLogging() 
+               .EnableSensitiveDataLogging(builder.Environment.IsDevelopment())
                .LogTo(Console.WriteLine, LogLevel.Warning));
 }
 
@@ -94,6 +107,51 @@ builder.Services.Configure<IdentityOptions>(options =>
     options.SignIn.RequireConfirmedEmail = false;
     options.SignIn.RequireConfirmedPhoneNumber = false;
 });
+
+// Configuration des Health Checks
+var mongoConnectionString = builder.Configuration.GetSection("MongoDbSettings:ConnectionString").Value ?? "mongodb://localhost:27017";
+var mongoDatabaseName = builder.Configuration.GetSection("MongoDbSettings:DatabaseName").Value ?? "CinephoriaDashboardDB";
+
+builder.Services.AddHealthChecks()
+    .AddCheck("postgresql", (cancellationToken) =>
+    {
+        try
+        {
+            using var connection = new NpgsqlConnection(connectionString);
+            connection.Open();
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT 1";
+            command.ExecuteScalar();
+            return HealthCheckResult.Healthy("PostgreSQL is healthy");
+        }
+        catch (Exception ex)
+        {
+            return HealthCheckResult.Unhealthy("PostgreSQL is unhealthy", ex);
+        }
+    }, tags: new[] { "database", "ready" })
+    .AddCheck("mongodb", (cancellationToken) =>
+    {
+        try
+        {
+            var client = new MongoClient(mongoConnectionString);
+            var database = client.GetDatabase(mongoDatabaseName);
+            database.RunCommand<MongoDB.Bson.BsonDocument>(new MongoDB.Bson.BsonDocument("ping", 1));
+            return HealthCheckResult.Healthy("MongoDB is healthy");
+        }
+        catch (Exception ex)
+        {
+            return HealthCheckResult.Unhealthy("MongoDB is unhealthy", ex);
+        }
+    }, tags: new[] { "database", "ready" })
+    .AddCheck("memory", () =>
+    {
+        var totalMemory = GC.GetTotalMemory(false) / 1024 / 1024; // MB
+        
+        if (totalMemory > 500) // 500MB threshold
+            return HealthCheckResult.Degraded($"Memory usage high: {totalMemory}MB");
+        
+        return HealthCheckResult.Healthy($"Memory usage: {totalMemory}MB");
+    }, tags: new[] { "live" });
 
 // Gérer les injections de dépendances
 builder.Services.AddDbServiceInjection();
@@ -246,6 +304,47 @@ app.UseHttpsRedirection();
 // Appliquez la politique CORS
 app.UseCors(SecurityExtensions.DEFAULT_POLICY);
 app.UseMiddleware<ErrorHandlingMiddleware>();
+
+// Health Checks endpoints
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("live"),
+    ResponseWriter = async (context, report) =>
+    {
+        var result = JsonSerializer.Serialize(new
+        {
+            status = report.Status.ToString(),
+            checks = report.Entries.Select(e => new
+            {
+                name = e.Key,
+                status = e.Value.Status.ToString(),
+                duration = e.Value.Duration.TotalMilliseconds
+            })
+        });
+        context.Response.ContentType = "application/json";
+        await context.Response.WriteAsync(result);
+    }
+});
+
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready"),
+    ResponseWriter = async (context, report) =>
+    {
+        var result = JsonSerializer.Serialize(new
+        {
+            status = report.Status.ToString(),
+            checks = report.Entries.Select(e => new
+            {
+                name = e.Key,
+                status = e.Value.Status.ToString(),
+                duration = e.Value.Duration.TotalMilliseconds
+            })
+        });
+        context.Response.ContentType = "application/json";
+        await context.Response.WriteAsync(result);
+    }
+});
 app.UseStaticFiles(new StaticFileOptions
 {
     FileProvider = new PhysicalFileProvider(
