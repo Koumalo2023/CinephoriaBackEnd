@@ -72,6 +72,7 @@ bower_components/
 
 # variables d'environnement
 *.env
+**/.env
 
 # Entity Framework
 Migrations/*.designer.cs
