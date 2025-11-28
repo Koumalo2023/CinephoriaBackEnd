@@ -3,10 +3,13 @@ using CinephoriaServer.API.Configurations.Extensions;
 using CinephoriaServer.API.Data;
 using CinephoriaServer.API.Models.PostgresqlDb;
 using CinephoriaServer.API.Services;
+using DotNetEnv;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore; 
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Options;
@@ -32,6 +35,12 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 
+// Charger le fichier .env en premier (pour le développement local)
+if (builder.Environment.IsDevelopment())
+{
+    Env.Load();
+}
+
 builder.Configuration
     .SetBasePath(Directory.GetCurrentDirectory())
     .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
@@ -39,7 +48,19 @@ builder.Configuration
     .AddEnvironmentVariables()
     .AddUserSecrets<Program>(optional: true);
 
+// Configuration Vault
+builder.Services.AddMemoryCache();
+builder.Services.AddScoped<IVaultService, VaultService>();
 
+// Configuration Vault pour les secrets
+// Note: Les secrets sont maintenant chargés depuis Vault via VaultConfigurationProvider
+// Les appsettings ne contiennent plus les secrets en clair
+
+// Ajouter le fournisseur de configuration Vault (désactivé en développement local)
+if (!builder.Environment.IsDevelopment())
+{
+    builder.Configuration.AddVaultConfiguration(builder.Services.BuildServiceProvider());
+}
 // Configuration de Serilog
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
@@ -95,16 +116,29 @@ builder.Services
     .AddEntityFrameworkStores<CinephoriaDbContext>()
     .AddDefaultTokenProviders();
 
-// Configuration de Identity
+// Configuration de Identity renforcée
 builder.Services.Configure<IdentityOptions>(options =>
 {
+    // Politique de mots de passe forte
     options.Password.RequiredLength = 8;
-    options.Password.RequireDigit = false;
-    options.Password.RequireLowercase = false;
-    options.Password.RequireUppercase = false;
-    options.Password.RequireNonAlphanumeric = false;
+    options.Password.RequireDigit = true;
+    options.Password.RequireLowercase = true;
+    options.Password.RequireUppercase = true;
+    options.Password.RequireNonAlphanumeric = true;
+    options.Password.RequiredUniqueChars = 3;
+    
+    // Configuration de verrouillage de compte
+    options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
+    options.Lockout.MaxFailedAccessAttempts = 5;
+    options.Lockout.AllowedForNewUsers = true;
+    
+    // Configuration utilisateur
+    options.User.AllowedUserNameCharacters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._@+";
+    options.User.RequireUniqueEmail = true;
+    
+    // Configuration de connexion
     options.SignIn.RequireConfirmedAccount = false;
-    options.SignIn.RequireConfirmedEmail = false;
+    options.SignIn.RequireConfirmedEmail = true;
     options.SignIn.RequireConfirmedPhoneNumber = false;
 });
 
@@ -211,7 +245,8 @@ builder.Services
             ValidateAudience = true,
             ValidIssuer = builder.Configuration["JWT:ValidIssuer"],
             ValidAudience = builder.Configuration["JWT:ValidAudience"],
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["JWT:Secret"]))
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["JWT:Secret"] ??
+                throw new InvalidOperationException("JWT Secret not found in configuration")))
         };
     });
 
@@ -279,18 +314,17 @@ builder.Services.AddEndpointsApiExplorer();
 
 
 
-// Configuration Kestrel pour utiliser HTTPS avec le certificat spécifié
+// Configuration Kestrel pour utiliser HTTPS même en développement
 builder.WebHost.ConfigureKestrel((context, options) =>
 {
     // Charger les paramètres depuis appsettings.json
     options.Configure(context.Configuration.GetSection("Kestrel"));
 });
 
-
-
 var app = builder.Build();
 
-
+// Le fournisseur de configuration Vault est déjà intégré via builder.Configuration.AddVaultConfiguration()
+// Les secrets sont automatiquement chargés et fusionnés avec la configuration
 
 
 // Configure the HTTP request pipeline.
@@ -300,6 +334,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+// Activer la redirection HTTPS même en développement
 app.UseHttpsRedirection();
 // Appliquez la politique CORS
 app.UseCors(SecurityExtensions.DEFAULT_POLICY);
@@ -353,6 +388,24 @@ app.UseStaticFiles(new StaticFileOptions
 });
 app.UseAuthorization();
 app.MapControllers();
+
+// Appliquer les migrations de base de données au démarrage
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    try
+    {
+        var context = services.GetRequiredService<CinephoriaDbContext>();
+        // Appliquer les migrations automatiquement
+        await context.Database.MigrateAsync();
+        Console.WriteLine("Migrations de base de données appliquées avec succès");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine("Erreur lors de l'application des migrations : " + ex.Message);
+        throw;
+    }
+}
 
 //Exécutez la méthode de seeding d'administrateur lors du démarrage de l'application
 using (var scope = app.Services.CreateScope())

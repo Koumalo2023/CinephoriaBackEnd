@@ -70,6 +70,9 @@ bower_components/
 *.min.css
 *.map
 
+# variables d'environnement
+*.env
+
 # Entity Framework
 Migrations/*.designer.cs
 Migrations/*Snapshot.cs
@@ -87,3 +90,7 @@ Migrations/*Snapshot.cs
 **/obj/
 **/bin/
 global.json
+
+
+#Autres repertoires
+DatabaseManagement/
