@@ -3,17 +3,24 @@ using CinephoriaServer.API.Configurations.Extensions;
 using CinephoriaServer.API.Data;
 using CinephoriaServer.API.Models.PostgresqlDb;
 using CinephoriaServer.API.Services;
+using DotNetEnv;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using MongoDB.Driver;
+using Npgsql;
 using Serilog;
 using System.Reflection;
 using System.Text;
+using System.Text.Json;
 
 
 
@@ -28,14 +35,32 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 
+// Charger le fichier .env en premier (pour le développement local)
+if (builder.Environment.IsDevelopment())
+{
+    Env.Load();
+}
+
 builder.Configuration
     .SetBasePath(Directory.GetCurrentDirectory())
     .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
-    .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true)
+    .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true, reloadOnChange: true)
     .AddEnvironmentVariables()
     .AddUserSecrets<Program>(optional: true);
 
+// Configuration Vault
+builder.Services.AddMemoryCache();
+builder.Services.AddScoped<IVaultService, VaultService>();
 
+// Configuration Vault pour les secrets
+// Note: Les secrets sont maintenant chargés depuis Vault via VaultConfigurationProvider
+// Les appsettings ne contiennent plus les secrets en clair
+
+// Ajouter le fournisseur de configuration Vault (désactivé en développement local)
+if (!builder.Environment.IsDevelopment())
+{
+    builder.Configuration.AddVaultConfiguration(builder.Services.BuildServiceProvider());
+}
 // Configuration de Serilog
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
@@ -45,20 +70,29 @@ Log.Logger = new LoggerConfiguration()
 builder.Host.UseSerilog();
 
 // Configuration de la base de données
+var connectionString = builder.Configuration.GetConnectionString("PostgreSQL") ??
+                      builder.Configuration.GetConnectionString("PostgreSql") ??
+                      builder.Configuration.GetConnectionString("PostgreSqlProd");
+
+if (string.IsNullOrEmpty(connectionString))
+{
+    throw new InvalidOperationException("Connection string 'PostgreSQL' not found.");
+}
+
 if (builder.Environment.IsDevelopment())
 {
     builder.Services.AddDbContext<CinephoriaDbContext>(options =>
-        options.UseNpgsql(builder.Configuration.GetConnectionString("PostgreSql"),
+        options.UseNpgsql(connectionString,
         npgsqlOptions => npgsqlOptions.EnableRetryOnFailure())
-               .EnableSensitiveDataLogging() 
-               .LogTo(Console.WriteLine, LogLevel.Information)); 
+               .EnableSensitiveDataLogging()
+               .LogTo(Console.WriteLine, LogLevel.Information));
 }
 else
 {
     builder.Services.AddDbContext<CinephoriaDbContext>(options =>
-        options.UseNpgsql(builder.Configuration.GetConnectionString("PostgreSqlProd"),
+        options.UseNpgsql(connectionString,
         npgsqlOptions => npgsqlOptions.EnableRetryOnFailure())
-               .EnableSensitiveDataLogging() 
+               .EnableSensitiveDataLogging(builder.Environment.IsDevelopment())
                .LogTo(Console.WriteLine, LogLevel.Warning));
 }
 
@@ -82,18 +116,76 @@ builder.Services
     .AddEntityFrameworkStores<CinephoriaDbContext>()
     .AddDefaultTokenProviders();
 
-// Configuration de Identity
+// Configuration de Identity renforcée
 builder.Services.Configure<IdentityOptions>(options =>
 {
+    // Politique de mots de passe forte
     options.Password.RequiredLength = 8;
-    options.Password.RequireDigit = false;
-    options.Password.RequireLowercase = false;
-    options.Password.RequireUppercase = false;
-    options.Password.RequireNonAlphanumeric = false;
+    options.Password.RequireDigit = true;
+    options.Password.RequireLowercase = true;
+    options.Password.RequireUppercase = true;
+    options.Password.RequireNonAlphanumeric = true;
+    options.Password.RequiredUniqueChars = 3;
+    
+    // Configuration de verrouillage de compte
+    options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
+    options.Lockout.MaxFailedAccessAttempts = 5;
+    options.Lockout.AllowedForNewUsers = true;
+    
+    // Configuration utilisateur
+    options.User.AllowedUserNameCharacters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._@+";
+    options.User.RequireUniqueEmail = true;
+    
+    // Configuration de connexion
     options.SignIn.RequireConfirmedAccount = false;
-    options.SignIn.RequireConfirmedEmail = false;
+    options.SignIn.RequireConfirmedEmail = true;
     options.SignIn.RequireConfirmedPhoneNumber = false;
 });
+
+// Configuration des Health Checks
+var mongoConnectionString = builder.Configuration.GetSection("MongoDbSettings:ConnectionString").Value ?? "mongodb://localhost:27017";
+var mongoDatabaseName = builder.Configuration.GetSection("MongoDbSettings:DatabaseName").Value ?? "CinephoriaDashboardDB";
+
+builder.Services.AddHealthChecks()
+    .AddCheck("postgresql", (cancellationToken) =>
+    {
+        try
+        {
+            using var connection = new NpgsqlConnection(connectionString);
+            connection.Open();
+            using var command = connection.CreateCommand();
+            command.CommandText = "SELECT 1";
+            command.ExecuteScalar();
+            return HealthCheckResult.Healthy("PostgreSQL is healthy");
+        }
+        catch (Exception ex)
+        {
+            return HealthCheckResult.Unhealthy("PostgreSQL is unhealthy", ex);
+        }
+    }, tags: new[] { "database", "ready" })
+    .AddCheck("mongodb", (cancellationToken) =>
+    {
+        try
+        {
+            var client = new MongoClient(mongoConnectionString);
+            var database = client.GetDatabase(mongoDatabaseName);
+            database.RunCommand<MongoDB.Bson.BsonDocument>(new MongoDB.Bson.BsonDocument("ping", 1));
+            return HealthCheckResult.Healthy("MongoDB is healthy");
+        }
+        catch (Exception ex)
+        {
+            return HealthCheckResult.Unhealthy("MongoDB is unhealthy", ex);
+        }
+    }, tags: new[] { "database", "ready" })
+    .AddCheck("memory", () =>
+    {
+        var totalMemory = GC.GetTotalMemory(false) / 1024 / 1024; // MB
+        
+        if (totalMemory > 500) // 500MB threshold
+            return HealthCheckResult.Degraded($"Memory usage high: {totalMemory}MB");
+        
+        return HealthCheckResult.Healthy($"Memory usage: {totalMemory}MB");
+    }, tags: new[] { "live" });
 
 // Gérer les injections de dépendances
 builder.Services.AddDbServiceInjection();
@@ -153,7 +245,8 @@ builder.Services
             ValidateAudience = true,
             ValidIssuer = builder.Configuration["JWT:ValidIssuer"],
             ValidAudience = builder.Configuration["JWT:ValidAudience"],
-            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["JWT:Secret"]))
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["JWT:Secret"] ??
+                throw new InvalidOperationException("JWT Secret not found in configuration")))
         };
     });
 
@@ -221,18 +314,17 @@ builder.Services.AddEndpointsApiExplorer();
 
 
 
-// Configuration Kestrel pour utiliser HTTPS avec le certificat spécifié
+// Configuration Kestrel pour utiliser HTTPS même en développement
 builder.WebHost.ConfigureKestrel((context, options) =>
 {
     // Charger les paramètres depuis appsettings.json
     options.Configure(context.Configuration.GetSection("Kestrel"));
 });
 
-
-
 var app = builder.Build();
 
-
+// Le fournisseur de configuration Vault est déjà intégré via builder.Configuration.AddVaultConfiguration()
+// Les secrets sont automatiquement chargés et fusionnés avec la configuration
 
 
 // Configure the HTTP request pipeline.
@@ -242,10 +334,52 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+// Activer la redirection HTTPS même en développement
 app.UseHttpsRedirection();
 // Appliquez la politique CORS
 app.UseCors(SecurityExtensions.DEFAULT_POLICY);
 app.UseMiddleware<ErrorHandlingMiddleware>();
+
+// Health Checks endpoints
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("live"),
+    ResponseWriter = async (context, report) =>
+    {
+        var result = JsonSerializer.Serialize(new
+        {
+            status = report.Status.ToString(),
+            checks = report.Entries.Select(e => new
+            {
+                name = e.Key,
+                status = e.Value.Status.ToString(),
+                duration = e.Value.Duration.TotalMilliseconds
+            })
+        });
+        context.Response.ContentType = "application/json";
+        await context.Response.WriteAsync(result);
+    }
+});
+
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = check => check.Tags.Contains("ready"),
+    ResponseWriter = async (context, report) =>
+    {
+        var result = JsonSerializer.Serialize(new
+        {
+            status = report.Status.ToString(),
+            checks = report.Entries.Select(e => new
+            {
+                name = e.Key,
+                status = e.Value.Status.ToString(),
+                duration = e.Value.Duration.TotalMilliseconds
+            })
+        });
+        context.Response.ContentType = "application/json";
+        await context.Response.WriteAsync(result);
+    }
+});
 app.UseStaticFiles(new StaticFileOptions
 {
     FileProvider = new PhysicalFileProvider(
@@ -254,6 +388,24 @@ app.UseStaticFiles(new StaticFileOptions
 });
 app.UseAuthorization();
 app.MapControllers();
+
+// Appliquer les migrations de base de données au démarrage
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    try
+    {
+        var context = services.GetRequiredService<CinephoriaDbContext>();
+        // Appliquer les migrations automatiquement
+        await context.Database.MigrateAsync();
+        Console.WriteLine("Migrations de base de données appliquées avec succès");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine("Erreur lors de l'application des migrations : " + ex.Message);
+        throw;
+    }
+}
 
 //Exécutez la méthode de seeding d'administrateur lors du démarrage de l'application
 using (var scope = app.Services.CreateScope())
