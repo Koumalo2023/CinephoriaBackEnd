@@ -5,6 +5,9 @@
 *.AppUserosscache
 *.sln.docstates
 
+# Sécurité
+*.env
+
 # Fichiers de construction (build)
 *.cache
 *.pdb

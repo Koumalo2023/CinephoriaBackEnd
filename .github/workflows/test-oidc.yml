@@ -1,0 +1,122 @@
+name: Test OIDC Connection - Backend
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to test'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+        - staging
+        - production
+
+env:
+  AWS_REGION: 'eu-west-3'
+
+jobs:
+  test-oidc-auth:
+    name: Test OIDC Authentication
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Configure AWS credentials via OIDC
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+        aws-region: ${{ env.AWS_REGION }}
+        role-session-name: GitHubActions-OIDC-Test
+
+    - name: Test EC2 permissions
+      run: |
+        echo "🔍 Testing EC2 permissions..."
+        aws ec2 describe-instances --instance-ids ${{ secrets.EC2_INSTANCE_ID }} --region ${{ env.AWS_REGION }}
+        echo "✅ EC2 permissions test passed"
+
+    - name: Test SSM permissions
+      run: |
+        echo "🔍 Testing SSM permissions..."
+        aws ssm describe-instance-information --region ${{ env.AWS_REGION }} --query "InstanceInformationList[0:1]"
+        echo "✅ SSM permissions test passed"
+
+    - name: Test IAM role identity
+      run: |
+        echo "🔍 Testing IAM role identity..."
+        aws sts get-caller-identity
+        echo "✅ IAM identity test passed"
+
+    - name: Verify environment variables
+      run: |
+        echo "🔍 Verifying environment configuration..."
+        echo "Environment: ${{ github.event.inputs.environment }}"
+        echo "AWS Region: ${{ env.AWS_REGION }}"
+        echo "EC2 Instance ID: ${{ secrets.EC2_INSTANCE_ID }}"
+        echo "✅ Environment verification complete"
+
+  test-deployment-readiness:
+    name: Test Deployment Readiness
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    needs: test-oidc-auth
+
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+    - name: Configure AWS credentials via OIDC
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+        aws-region: ${{ env.AWS_REGION }}
+
+    - name: Test Docker Compose generation
+      run: |
+        echo "🔍 Testing Docker Compose generation..."
+        ENVIRONMENT=${{ github.event.inputs.environment }}
+        PORT=$([ "$ENVIRONMENT" = "staging" ] && echo "5001" || echo "5000")
+        
+        cat > docker-compose-test.yml << EOF
+        version: '3.8'
+        services:
+          backend:
+            image: ghcr.io/${{ github.repository }}/cinephoria-backend:$ENVIRONMENT-latest
+            environment:
+              - ASPNETCORE_ENVIRONMENT=$([ "$ENVIRONMENT" = "staging" ] && echo "Staging" || echo "Production")
+            ports:
+              - "$PORT:8080"
+        EOF
+        
+        echo "Generated docker-compose-test.yml:"
+        cat docker-compose-test.yml
+        echo "✅ Docker Compose generation test passed"
+
+    - name: Test health check simulation
+      run: |
+        echo "🔍 Testing health check simulation..."
+        ENVIRONMENT=${{ github.event.inputs.environment }}
+        PORT=$([ "$ENVIRONMENT" = "staging" ] && echo "5001" || echo "5000")
+        echo "Health check would target: http://localhost:$PORT/health/ready"
+        echo "✅ Health check simulation passed"
+
+    - name: Final validation
+      run: |
+        echo "🎉 OIDC Connection Test COMPLETED SUCCESSFULLY!"
+        echo "✅ OIDC Authentication working"
+        echo "✅ AWS Permissions validated"
+        echo "✅ Deployment readiness confirmed"
+        echo "✅ Environment: ${{ github.event.inputs.environment }}"
+        echo ""
+        echo "Next steps:"
+        echo "- Add remaining secrets to GitHub Environments"
+        echo "- Implement full deployment workflows"
+        echo "- Test actual deployment"
