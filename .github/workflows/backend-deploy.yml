@@ -24,7 +24,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}/cinephoria-backend
+  IMAGE_NAME: ${{ toLower(github.repository) }}/cinephoria-backend
   AWS_REGION: 'eu-west-3'
 
 jobs:
