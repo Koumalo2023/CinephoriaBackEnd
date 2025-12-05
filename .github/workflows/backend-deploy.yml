@@ -151,7 +151,7 @@ jobs:
         aws-region: ${{ env.AWS_REGION }}
         role-session-name: GitHubActions-Backend-Deploy
 
-    - name: Generate docker-compose file
+    - name: Generate docker-compose file and deploy script
       id: generate-compose
       run: |
         ENVIRONMENT=${{ needs.build-and-push.outputs.environment }}
@@ -214,9 +214,29 @@ jobs:
         echo "content<<EOF" >> $GITHUB_OUTPUT
         echo "$CONTENT" >> $GITHUB_OUTPUT
         echo "EOF" >> $GITHUB_OUTPUT
-        # Définir la sortie script-content (identique)
-        echo "script-content<<EOF" >> $GITHUB_OUTPUT
-        echo "$CONTENT" >> $GITHUB_OUTPUT
+        
+        # Créer un script de déploiement unique
+        cat > deploy.sh << 'DEPLOY_EOF'
+        #!/bin/bash
+        set -e
+        ENVIRONMENT=$1
+        mkdir -p /opt/cinephoria/scripts
+        chmod +x /opt/cinephoria/scripts
+        cd /opt/cinephoria
+        # Écrire le docker-compose
+        cat > docker-compose.$ENVIRONMENT.yml << 'COMPOSE_EOF'
+        $(cat docker-compose.$ENVIRONMENT.yml)
+        COMPOSE_EOF
+        # Arrêter les conteneurs existants et démarrer
+        docker-compose -f docker-compose.$ENVIRONMENT.yml down || true
+        docker-compose -f docker-compose.$ENVIRONMENT.yml up -d
+        echo "Déploiement terminé pour l'environnement $ENVIRONMENT"
+        DEPLOY_EOF
+        
+        # Définir la sortie deploy-script
+        DEPLOY_CONTENT=$(cat deploy.sh)
+        echo "deploy-script<<EOF" >> $GITHUB_OUTPUT
+        echo "$DEPLOY_CONTENT" >> $GITHUB_OUTPUT
         echo "EOF" >> $GITHUB_OUTPUT
 
     - name: Wait for SSM agent to be ready
@@ -248,37 +268,15 @@ jobs:
       run: |
         INSTANCE_ID="${{ secrets.EC2_INSTANCE_ID }}"
         ENVIRONMENT="${{ needs.build-and-push.outputs.environment }}"
-        # Échapper le contenu du docker-compose pour JSON
-        CONTENT=$(echo "${{ steps.generate-compose.outputs.content }}" | jq -Rs .)
-        SCRIPT_CONTENT=$(echo "${{ steps.generate-compose.outputs.script-content }}" | jq -Rs .)
-        # Créer le répertoire des scripts
+        # Échapper le script de déploiement pour JSON
+        DEPLOY_SCRIPT=$(echo "${{ steps.generate-compose.outputs.deploy-script }}" | jq -Rs .)
+        # Exécuter le script de déploiement en une seule commande
         aws ssm send-command \
           --region ${{ env.AWS_REGION }} \
           --instance-ids "$INSTANCE_ID" \
           --document-name "AWS-RunShellScript" \
-          --comment "Create scripts directory" \
-          --parameters '{"commands":["mkdir -p /opt/cinephoria/scripts && chmod +x /opt/cinephoria/scripts"],"workingDirectory":["/tmp"]}'
-        # Télécharger le script de déploiement
-        aws ssm send-command \
-          --region ${{ env.AWS_REGION }} \
-          --instance-ids "$INSTANCE_ID" \
-          --document-name "AWS-RunShellScript" \
-          --comment "Upload deploy script" \
-          --parameters "{\"commands\":[\"cat > deploy-backend.sh << 'EOF'\\n$(echo $SCRIPT_CONTENT | jq -r .)\\nEOF\"],\"workingDirectory\":[\"/opt/cinephoria\"]}"
-        # Télécharger le fichier docker-compose
-        aws ssm send-command \
-          --region ${{ env.AWS_REGION }} \
-          --instance-ids "$INSTANCE_ID" \
-          --document-name "AWS-RunShellScript" \
-          --comment "Upload docker-compose file" \
-          --parameters "{\"commands\":[\"cat > docker-compose.$ENVIRONMENT.yml << 'EOF_DOCKER_COMPOSE'\\n$(echo $CONTENT | jq -r .)\\nEOF_DOCKER_COMPOSE\"],\"workingDirectory\":[\"/opt/cinephoria\"]}"
-        # Exécuter le déploiement
-        aws ssm send-command \
-          --region ${{ env.AWS_REGION }} \
-          --instance-ids "$INSTANCE_ID" \
-          --document-name "AWS-RunShellScript" \
-          --comment "Run deployment" \
-          --parameters '{"commands":["chmod +x deploy-backend.sh && ./deploy-backend.sh '"$ENVIRONMENT"'"],"workingDirectory":["/opt/cinephoria"]}'
+          --comment "Run deployment script" \
+          --parameters "{\"commands\":[\"bash -c \\\"$(echo $DEPLOY_SCRIPT | jq -r .)\\\" $ENVIRONMENT\"],\"workingDirectory\":[\"/opt/cinephoria\"]}"
 
     - name: Health check
       run: |
