@@ -220,7 +220,7 @@ jobs:
         echo "EOF" >> $GITHUB_OUTPUT
 
     - name: Copy deployment scripts to EC2
-      uses: aws-actions/aws-ssm-send-command@v2
+      uses: aws-actions/aws-ssm-send-command@v2.0.0
       with:
         region: ${{ env.AWS_REGION }}
         instance-ids: ${{ secrets.EC2_INSTANCE_ID }}
@@ -231,7 +231,7 @@ jobs:
           chmod +x /opt/cinephoria/scripts
 
     - name: Upload deploy script
-      uses: aws-actions/aws-ssm-send-command@v2
+      uses: aws-actions/aws-ssm-send-command@v2.0.0
       with:
         region: ${{ env.AWS_REGION }}
         instance-ids: ${{ secrets.EC2_INSTANCE_ID }}
@@ -244,7 +244,7 @@ jobs:
         # Note: Nous utiliserons le script généré dynamiquement
 
     - name: Upload docker-compose file
-      uses: aws-actions/aws-ssm-send-command@v2
+      uses: aws-actions/aws-ssm-send-command@v2.0.0
       with:
         region: ${{ env.AWS_REGION }}
         instance-ids: ${{ secrets.EC2_INSTANCE_ID }}
@@ -256,7 +256,7 @@ jobs:
           EOF_DOCKER_COMPOSE
 
     - name: Run deployment
-      uses: aws-actions/aws-ssm-send-command@v2
+      uses: aws-actions/aws-ssm-send-command@v2.0.0
       with:
         region: ${{ env.AWS_REGION }}
         instance-ids: ${{ secrets.EC2_INSTANCE_ID }}
@@ -288,5 +288,5 @@ jobs:
     - name: Notify on failure
       if: needs.deploy.result == 'failure'
       run: |
-        echo "❌ Échec du déploiement sur ${{ needs.build-push.outputs.environment }}"
+        echo "❌ Échec du déploiement sur ${{ needs.build-and-push.outputs.environment }}"
         exit 1
