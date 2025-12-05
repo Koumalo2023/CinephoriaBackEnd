@@ -248,6 +248,9 @@ jobs:
       run: |
         INSTANCE_ID="${{ secrets.EC2_INSTANCE_ID }}"
         ENVIRONMENT="${{ needs.build-and-push.outputs.environment }}"
+        # Échapper le contenu du docker-compose pour JSON
+        CONTENT=$(echo "${{ steps.generate-compose.outputs.content }}" | jq -Rs .)
+        SCRIPT_CONTENT=$(echo "${{ steps.generate-compose.outputs.script-content }}" | jq -Rs .)
         # Créer le répertoire des scripts
         aws ssm send-command \
           --region ${{ env.AWS_REGION }} \
@@ -261,14 +264,14 @@ jobs:
           --instance-ids "$INSTANCE_ID" \
           --document-name "AWS-RunShellScript" \
           --comment "Upload deploy script" \
-          --parameters '{"commands":["cat > deploy-backend.sh << '\''EOF'\''\n'"${{ steps.generate-compose.outputs.script-content }}"'\nEOF"],"workingDirectory":["/opt/cinephoria"]}'
+          --parameters "{\"commands\":[\"cat > deploy-backend.sh << 'EOF'\\n$(echo $SCRIPT_CONTENT | jq -r .)\\nEOF\"],\"workingDirectory\":[\"/opt/cinephoria\"]}"
         # Télécharger le fichier docker-compose
         aws ssm send-command \
           --region ${{ env.AWS_REGION }} \
           --instance-ids "$INSTANCE_ID" \
           --document-name "AWS-RunShellScript" \
           --comment "Upload docker-compose file" \
-          --parameters '{"commands":["cat > docker-compose.'"$ENVIRONMENT"'.yml << '\''EOF_DOCKER_COMPOSE'\''\n'"${{ steps.generate-compose.outputs.content }}"'\nEOF_DOCKER_COMPOSE"],"workingDirectory":["/opt/cinephoria"]}'
+          --parameters "{\"commands\":[\"cat > docker-compose.$ENVIRONMENT.yml << 'EOF_DOCKER_COMPOSE'\\n$(echo $CONTENT | jq -r .)\\nEOF_DOCKER_COMPOSE\"],\"workingDirectory\":[\"/opt/cinephoria\"]}"
         # Exécuter le déploiement
         aws ssm send-command \
           --region ${{ env.AWS_REGION }} \
