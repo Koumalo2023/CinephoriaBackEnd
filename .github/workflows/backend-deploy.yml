@@ -172,6 +172,17 @@ jobs:
               - postgres_data_$ENVIRONMENT:/var/lib/postgresql/data
             restart: unless-stopped
 
+          mongodb:
+            image: mongo:4.4
+            container_name: cinephoria-mongodb-$ENVIRONMENT
+            environment:
+              MONGO_INITDB_DATABASE: CinephoriaDashboardDB_$DB_SUFFIX
+            ports:
+              - "27017:27017"
+            volumes:
+              - mongodb_data_$ENVIRONMENT:/data/db
+            restart: unless-stopped
+
           backend:
             image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$ENVIRONMENT-latest
             container_name: cinephoria-backend-$ENVIRONMENT
@@ -184,10 +195,12 @@ jobs:
               - "$PORT:8080"
             depends_on:
               - postgres
+              - mongodb
             restart: unless-stopped
 
         volumes:
           postgres_data_$ENVIRONMENT:
+          mongodb_data_$ENVIRONMENT:
         EOF
         
         echo "Fichier docker-compose.$ENVIRONMENT.yml généré :"

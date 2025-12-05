@@ -20,6 +20,8 @@ env:
   AWS_REGION: 'eu-west-3'
   DOCKER_IMAGE: 'cinephoria-backend'
   DOCKER_TAG: 'latest'
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}/cinephoria-backend
 
 jobs:
   deploy:
@@ -47,7 +49,7 @@ jobs:
         fi
         echo "ENV=$ENV" >> $GITHUB_ENV
         echo "SERVICE_NAME=backend-$ENV" >> $GITHUB_ENV
-        echo "DOCKER_REPO=${{ secrets.DOCKER_USERNAME }}/$DOCKER_IMAGE" >> $GITHUB_ENV
+        echo "IMAGE_FULL=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:$ENV-latest" >> $GITHUB_ENV
 
     - name: Configure AWS credentials via OIDC
       uses: aws-actions/configure-aws-credentials@v4
@@ -66,20 +68,21 @@ jobs:
         echo "INSTANCE_ID=$INSTANCE_ID" >> $GITHUB_ENV
         echo "Found instance: $INSTANCE_ID"
 
-    - name: Login to Docker Hub
+    - name: Log in to Container Registry
       uses: docker/login-action@v3
       with:
-        username: ${{ secrets.DOCKER_USERNAME }}
-        password: ${{ secrets.DOCKER_PASSWORD }}
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Build Docker image
       run: |
         cd CinephoriaServer.API
-        docker build -t ${{ env.DOCKER_REPO }}:${{ env.DOCKER_TAG }} .
+        docker build -t ${{ env.IMAGE_FULL }} .
 
     - name: Push Docker image
       run: |
-        docker push ${{ env.DOCKER_REPO }}:${{ env.DOCKER_TAG }}
+        docker push ${{ env.IMAGE_FULL }}
 
     - name: Deploy to EC2 via SSM
       run: |
