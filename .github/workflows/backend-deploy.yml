@@ -24,7 +24,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: koumalo2023/cinephoriabackend/cinephoria-backend
+  IMAGE_NAME: koumalo2023/cinephoria-backend
   AWS_REGION: 'eu-west-3'
 
 jobs:
@@ -66,6 +66,10 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     
+    permissions:
+      packages: write
+      contents: read
+
     outputs:
       image-tag: ${{ steps.meta.outputs.tags }}
       environment: ${{ steps.env.outputs.environment }}
