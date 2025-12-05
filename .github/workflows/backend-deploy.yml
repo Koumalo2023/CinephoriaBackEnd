@@ -219,6 +219,31 @@ jobs:
         echo "$CONTENT" >> $GITHUB_OUTPUT
         echo "EOF" >> $GITHUB_OUTPUT
 
+    - name: Wait for SSM agent to be ready
+      run: |
+        INSTANCE_ID="${{ secrets.EC2_INSTANCE_ID }}"
+        echo "Waiting for SSM agent to be ready on instance $INSTANCE_ID..."
+        for i in {1..30}; do
+          if aws ssm describe-instance-information \
+            --filters Key=InstanceIds,Values=$INSTANCE_ID \
+            --region ${{ env.AWS_REGION }} \
+            --query "InstanceInformationList[0].PingStatus" \
+            --output text 2>/dev/null | grep -q "Online"; then
+            echo "SSM agent is ready."
+            break
+          fi
+          echo "Attempt $i/30: SSM agent not ready yet, waiting 10 seconds..."
+          sleep 10
+        done
+        # If still not ready, continue anyway (might fail later)
+        if ! aws ssm describe-instance-information \
+          --filters Key=InstanceIds,Values=$INSTANCE_ID \
+          --region ${{ env.AWS_REGION }} \
+          --query "InstanceInformationList[0].PingStatus" \
+          --output text 2>/dev/null | grep -q "Online"; then
+          echo "Warning: SSM agent still not ready after 5 minutes. Proceeding anyway."
+        fi
+
     - name: Deploy to EC2 via AWS CLI
       run: |
         INSTANCE_ID="${{ secrets.EC2_INSTANCE_ID }}"
