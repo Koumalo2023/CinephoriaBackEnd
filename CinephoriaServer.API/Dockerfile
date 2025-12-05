@@ -34,9 +34,9 @@ RUN groupadd -r appuser && useradd -r -g appuser appuser
 # Copier les artefacts publiés depuis l'étape de build
 COPY --from=build /app/publish .
 
-# Créer le dossier des certificats et copier les certificats
-RUN mkdir -p /app/certificates
-COPY certificates/ /app/certificates/
+# Créer le dossier des certificats et copier les certificats (optionnel)
+# RUN mkdir -p /app/certificates
+# COPY certificates/ /app/certificates/
 
 # Changer les permissions pour l'utilisateur non-root
 RUN chown -R appuser:appuser /app
