@@ -151,7 +151,7 @@ jobs:
         aws-region: ${{ env.AWS_REGION }}
         role-session-name: GitHubActions-Backend-Deploy
 
-    - name: Generate docker-compose file and deploy script
+    - name: Generate docker-compose file
       id: generate-compose
       run: |
         ENVIRONMENT=${{ needs.build-and-push.outputs.environment }}
@@ -214,30 +214,6 @@ jobs:
         echo "content<<EOF" >> $GITHUB_OUTPUT
         echo "$CONTENT" >> $GITHUB_OUTPUT
         echo "EOF" >> $GITHUB_OUTPUT
-        
-        # Créer un script de déploiement unique
-        cat > deploy.sh << 'DEPLOY_EOF'
-        #!/bin/bash
-        set -e
-        ENVIRONMENT=$1
-        mkdir -p /opt/cinephoria/scripts
-        chmod +x /opt/cinephoria/scripts
-        cd /opt/cinephoria
-        # Écrire le docker-compose
-        cat > docker-compose.$ENVIRONMENT.yml << 'COMPOSE_EOF'
-        $(cat docker-compose.$ENVIRONMENT.yml)
-        COMPOSE_EOF
-        # Arrêter les conteneurs existants et démarrer
-        docker-compose -f docker-compose.$ENVIRONMENT.yml down || true
-        docker-compose -f docker-compose.$ENVIRONMENT.yml up -d
-        echo "Déploiement terminé pour l'environnement $ENVIRONMENT"
-        DEPLOY_EOF
-        
-        # Définir la sortie deploy-script
-        DEPLOY_CONTENT=$(cat deploy.sh)
-        echo "deploy-script<<EOF" >> $GITHUB_OUTPUT
-        echo "$DEPLOY_CONTENT" >> $GITHUB_OUTPUT
-        echo "EOF" >> $GITHUB_OUTPUT
 
     - name: Wait for SSM agent to be ready
       run: |
@@ -268,15 +244,25 @@ jobs:
       run: |
         INSTANCE_ID="${{ secrets.EC2_INSTANCE_ID }}"
         ENVIRONMENT="${{ needs.build-and-push.outputs.environment }}"
-        # Échapper le script de déploiement pour JSON
-        DEPLOY_SCRIPT=$(echo "${{ steps.generate-compose.outputs.deploy-script }}" | jq -Rs .)
-        # Exécuter le script de déploiement en une seule commande
+        # Lire le contenu du docker-compose et l'échapper pour JSON
+        COMPOSE_CONTENT=$(cat docker-compose.$ENVIRONMENT.yml | jq -Rs .)
+        # Construire le tableau de commandes avec jq pour un JSON propre
+        COMMANDS_JSON=$(jq -n \
+          --arg cmd1 "mkdir -p /opt/cinephoria" \
+          --arg cmd2 "cd /opt/cinephoria" \
+          --arg cmd3 "cat > docker-compose.$ENVIRONMENT.yml << 'EOF'
+$(cat docker-compose.$ENVIRONMENT.yml)
+EOF" \
+          --arg cmd4 "docker-compose -f docker-compose.$ENVIRONMENT.yml down || true" \
+          --arg cmd5 "docker-compose -f docker-compose.$ENVIRONMENT.yml up -d" \
+          '[$cmd1, $cmd2, $cmd3, $cmd4, $cmd5]')
+        # Envoyer la commande SSM
         aws ssm send-command \
           --region ${{ env.AWS_REGION }} \
           --instance-ids "$INSTANCE_ID" \
           --document-name "AWS-RunShellScript" \
-          --comment "Run deployment script" \
-          --parameters "{\"commands\":[\"bash -c \\\"$(echo $DEPLOY_SCRIPT | jq -r .)\\\" $ENVIRONMENT\"],\"workingDirectory\":[\"/opt/cinephoria\"]}"
+          --comment "Deploy cinephoria backend" \
+          --parameters "{\"commands\":$COMMANDS_JSON,\"workingDirectory\":[\"/opt/cinephoria\"]}"
 
     - name: Health check
       run: |
