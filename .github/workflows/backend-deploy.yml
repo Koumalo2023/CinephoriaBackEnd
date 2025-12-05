@@ -229,36 +229,28 @@ jobs:
           --instance-ids "$INSTANCE_ID" \
           --document-name "AWS-RunShellScript" \
           --comment "Create scripts directory" \
-          --working-directory /tmp \
-          --command "mkdir -p /opt/cinephoria/scripts && chmod +x /opt/cinephoria/scripts"
+          --parameters '{"commands":["mkdir -p /opt/cinephoria/scripts && chmod +x /opt/cinephoria/scripts"],"workingDirectory":["/tmp"]}'
         # Télécharger le script de déploiement
         aws ssm send-command \
           --region ${{ env.AWS_REGION }} \
           --instance-ids "$INSTANCE_ID" \
           --document-name "AWS-RunShellScript" \
           --comment "Upload deploy script" \
-          --working-directory /opt/cinephoria \
-          --command "cat > deploy-backend.sh << 'EOF'
-        ${{ steps.generate-compose.outputs.script-content }}
-        EOF"
+          --parameters '{"commands":["cat > deploy-backend.sh << '\''EOF'\''\n'"${{ steps.generate-compose.outputs.script-content }}"'\nEOF"],"workingDirectory":["/opt/cinephoria"]}'
         # Télécharger le fichier docker-compose
         aws ssm send-command \
           --region ${{ env.AWS_REGION }} \
           --instance-ids "$INSTANCE_ID" \
           --document-name "AWS-RunShellScript" \
           --comment "Upload docker-compose file" \
-          --working-directory /opt/cinephoria \
-          --command "cat > docker-compose.$ENVIRONMENT.yml << 'EOF_DOCKER_COMPOSE'
-        ${{ steps.generate-compose.outputs.content }}
-        EOF_DOCKER_COMPOSE"
+          --parameters '{"commands":["cat > docker-compose.'"$ENVIRONMENT"'.yml << '\''EOF_DOCKER_COMPOSE'\''\n'"${{ steps.generate-compose.outputs.content }}"'\nEOF_DOCKER_COMPOSE"],"workingDirectory":["/opt/cinephoria"]}'
         # Exécuter le déploiement
         aws ssm send-command \
           --region ${{ env.AWS_REGION }} \
           --instance-ids "$INSTANCE_ID" \
           --document-name "AWS-RunShellScript" \
           --comment "Run deployment" \
-          --working-directory /opt/cinephoria \
-          --command "chmod +x deploy-backend.sh && ./deploy-backend.sh $ENVIRONMENT"
+          --parameters '{"commands":["chmod +x deploy-backend.sh && ./deploy-backend.sh '"$ENVIRONMENT"'"],"workingDirectory":["/opt/cinephoria"]}'
 
     - name: Health check
       run: |
