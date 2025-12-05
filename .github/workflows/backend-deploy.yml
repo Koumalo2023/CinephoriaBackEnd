@@ -151,8 +151,8 @@ jobs:
       id: generate-compose
       run: |
         ENVIRONMENT=${{ needs.build-and-push.outputs.environment }}
-        PORT=${{ fromJSON('{"staging":"5001","production":"5000"}')[ENVIRONMENT] }}
-        DB_SUFFIX=${{ fromJSON('{"staging":"Staging","production":"Production"}')[ENVIRONMENT] }}
+        PORT=${{ fromJSON('{"staging":"5001","production":"5000"}')[needs.build-and-push.outputs.environment] }}
+        DB_SUFFIX=${{ fromJSON('{"staging":"Staging","production":"Production"}')[needs.build-and-push.outputs.environment] }}
         
         # Créer le fichier docker-compose
         cat > docker-compose.$ENVIRONMENT.yml << EOF
@@ -205,6 +205,15 @@ jobs:
         
         echo "Fichier docker-compose.$ENVIRONMENT.yml généré :"
         cat docker-compose.$ENVIRONMENT.yml
+        # Définir la sortie content (multiligne)
+        CONTENT=$(cat docker-compose.$ENVIRONMENT.yml)
+        echo "content<<EOF" >> $GITHUB_OUTPUT
+        echo "$CONTENT" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+        # Définir la sortie script-content (identique)
+        echo "script-content<<EOF" >> $GITHUB_OUTPUT
+        echo "$CONTENT" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
 
     - name: Copy deployment scripts to EC2
       uses: aws-actions/aws-ssm-send-command@v2
@@ -239,7 +248,7 @@ jobs:
         working-directory: /opt/cinephoria
         command: |
           cat > docker-compose.${{ needs.build-and-push.outputs.environment }}.yml << 'EOF_DOCKER_COMPOSE'
-          ${{ files."docker-compose.${{ needs.build-and-push.outputs.environment }}.yml" }}
+          ${{ steps.generate-compose.outputs.content }}
           EOF_DOCKER_COMPOSE
 
     - name: Run deployment
