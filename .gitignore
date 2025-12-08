@@ -98,3 +98,6 @@ global.json
 
 #Autres repertoires
 DatabaseManagement/
+  
+"# Output files"  
+"output.txt" 
