@@ -7,9 +7,7 @@ using DotNetEnv;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
-using Microsoft.Extensions.Configuration;
+using Microsoft.EntityFrameworkCore; 
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Options;
@@ -53,8 +51,6 @@ builder.Services.AddMemoryCache();
 builder.Services.AddScoped<IVaultService, VaultService>();
 
 // Configuration Vault pour les secrets
-// Note: Les secrets sont maintenant chargés depuis Vault via VaultConfigurationProvider
-// Les appsettings ne contiennent plus les secrets en clair
 
 // Ajouter le fournisseur de configuration Vault (désactivé en développement local)
 if (!builder.Environment.IsDevelopment())
@@ -318,6 +314,8 @@ builder.Services.AddEndpointsApiExplorer();
 builder.WebHost.ConfigureKestrel((context, options) =>
 {
     // Charger les paramètres depuis appsettings.json
+    var certPassword = context.Configuration["Kestrel:Endpoints:Https:Certificate:Password"];
+    Console.WriteLine($"Cert password config value: '{certPassword}'");
     options.Configure(context.Configuration.GetSection("Kestrel"));
 });
 

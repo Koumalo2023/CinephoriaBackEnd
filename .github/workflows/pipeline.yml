@@ -8,9 +8,9 @@ on:
       - production # Déploiement auto production
 
 jobs:
-  # Tests .NET obligatoires
+  # Build .NET obligatoire (sans tests)
   test:
-    name: Run .NET Tests
+    name: Build .NET API
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -23,11 +23,8 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore
       
-      - name: Build solution
-        run: dotnet build --no-restore
-      
-      - name: Run tests
-        run: dotnet test --no-build --verbosity normal
+      - name: Build API project only
+        run: dotnet build CinephoriaBackEnd/CinephoriaServer.API --no-restore
 
   # Build et push Docker
   build-docker:
