@@ -1,0 +1,87 @@
+name: Backend CI/CD
+
+on:
+  push:
+    branches:
+      - develop    # Déploiement auto staging
+      - staging    # Déploiement manuel après validation  
+      - production # Déploiement auto production
+
+jobs:
+  # Tests .NET obligatoires
+  test:
+    name: Run .NET Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      
+      - name: Restore dependencies
+        run: dotnet restore
+      
+      - name: Build solution
+        run: dotnet build --no-restore
+      
+      - name: Run tests
+        run: dotnet test --no-build --verbosity normal
+
+  # Build et push Docker
+  build-docker:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    needs: test
+    if: success()
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./CinephoriaServer.API
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}/backend:${{ github.ref_name }}
+            ghcr.io/${{ github.repository }}/backend:latest
+
+  # Déploiement sur EC2
+  deploy:
+    name: Deploy to ${{ github.ref_name }}
+    runs-on: ubuntu-latest
+    needs: build-docker
+    if: success()
+    environment: ${{ github.ref_name }}
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Configure AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: eu-west-3
+      
+      - name: Deploy to EC2
+        run: |
+          # Commandes SSM pour déployer sur l'instance EC2
+          aws ssm send-command \
+            --instance-ids "${{ secrets.EC2_INSTANCE_ID }}" \
+            --document-name "AWS-RunShellScript" \
+            --parameters '{
+              "commands": [
+                "cd /opt/cinephoria",
+                "docker-compose pull",
+                "docker-compose up -d backend"
+              ]
+            }'
