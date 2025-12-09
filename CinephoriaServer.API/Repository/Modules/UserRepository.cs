@@ -66,6 +66,24 @@ namespace CinephoriaServer.API.Repository
         /// <returns>L'utilisateur correspondant.</returns>
         Task<AppUser> GetByIdAsync(string id);
 
+        /// <summary>
+        /// Récupère la liste des utilisateurs avec filtrage, pagination et tri.
+        /// </summary>
+        /// <param name="role">Filtre par rôle (optionnel).</param>
+        /// <param name="page">Numéro de page (défaut 1).</param>
+        /// <param name="pageSize">Taille de la page (défaut 10).</param>
+        /// <param name="sortBy">Champ de tri (optionnel).</param>
+        /// <param name="sortOrder">Ordre de tri ("asc" ou "desc", défaut "asc").</param>
+        /// <returns>Tuple contenant la liste des utilisateurs et le nombre total.</returns>
+        Task<(List<AppUser> Users, int TotalCount)> GetUsersFilteredAsync(string? role = null, int page = 1, int pageSize = 10, string? sortBy = null, string? sortOrder = "asc");
+
+        /// <summary>
+        /// Compte le nombre total d'utilisateurs avec un filtre optionnel par rôle.
+        /// </summary>
+        /// <param name="role">Filtre par rôle (optionnel).</param>
+        /// <returns>Le nombre d'utilisateurs correspondants.</returns>
+        Task<int> CountUsersAsync(string? role = null);
+
     }
 
     public class UserRepository : EFRepository<AppUser>, IUserRepository
@@ -196,6 +214,93 @@ namespace CinephoriaServer.API.Repository
         public async Task<AppUser> GetByIdAsync(string id)
         {
             return await _context.Set<AppUser>().FindAsync(id);
+        }
+
+        /// <summary>
+        /// Récupère la liste des utilisateurs avec filtrage, pagination et tri.
+        /// </summary>
+        /// <param name="role">Filtre par rôle (optionnel).</param>
+        /// <param name="page">Numéro de page (défaut 1).</param>
+        /// <param name="pageSize">Taille de la page (défaut 10).</param>
+        /// <param name="sortBy">Champ de tri (optionnel).</param>
+        /// <param name="sortOrder">Ordre de tri ("asc" ou "desc", défaut "asc").</param>
+        /// <returns>Tuple contenant la liste des utilisateurs et le nombre total.</returns>
+        public async Task<(List<AppUser> Users, int TotalCount)> GetUsersFilteredAsync(string? role = null, int page = 1, int pageSize = 10, string? sortBy = null, string? sortOrder = "asc")
+        {
+            var query = _context.Set<AppUser>().AsQueryable();
+
+            // Filtre par rôle
+            if (!string.IsNullOrEmpty(role))
+            {
+                if (Enum.TryParse<UserRole>(role, true, out UserRole roleEnum))
+                {
+                    query = query.Where(u => u.Role == roleEnum);
+                }
+                else
+                {
+                    // Si le rôle n'est pas valide, on ignore le filtre (ou on peut lever une exception)
+                    // Pour l'instant, on ignore.
+                }
+            }
+
+            // Tri
+            if (!string.IsNullOrEmpty(sortBy))
+            {
+                bool isDescending = sortOrder?.ToLower() == "desc";
+                switch (sortBy.ToLower())
+                {
+                    case "firstname":
+                        query = isDescending ? query.OrderByDescending(u => u.FirstName) : query.OrderBy(u => u.FirstName);
+                        break;
+                    case "lastname":
+                        query = isDescending ? query.OrderByDescending(u => u.LastName) : query.OrderBy(u => u.LastName);
+                        break;
+                    case "email":
+                        query = isDescending ? query.OrderByDescending(u => u.Email) : query.OrderBy(u => u.Email);
+                        break;
+                    case "createdat":
+                        query = isDescending ? query.OrderByDescending(u => u.CreatedAt) : query.OrderBy(u => u.CreatedAt);
+                        break;
+                    default:
+                        query = query.OrderBy(u => u.Id);
+                        break;
+                }
+            }
+            else
+            {
+                query = query.OrderBy(u => u.Id);
+            }
+
+            // Pagination
+            var totalCount = await query.CountAsync();
+            var users = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return (users, totalCount);
+        }
+
+        /// <summary>
+        /// Compte le nombre total d'utilisateurs avec un filtre optionnel par rôle.
+        /// </summary>
+        /// <param name="role">Filtre par rôle (optionnel).</param>
+        /// <returns>Le nombre d'utilisateurs correspondants.</returns>
+        public async Task<int> CountUsersAsync(string? role = null)
+        {
+            var query = _context.Set<AppUser>().AsQueryable();
+            if (!string.IsNullOrEmpty(role))
+            {
+                if (Enum.TryParse<UserRole>(role, true, out UserRole roleEnum))
+                {
+                    query = query.Where(u => u.Role == roleEnum);
+                }
+                else
+                {
+                    // Si le rôle n'est pas valide, on ignore le filtre
+                }
+            }
+            return await query.CountAsync();
         }
     }
 }

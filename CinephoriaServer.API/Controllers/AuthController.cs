@@ -2,6 +2,7 @@
 using CinephoriaServer.API.Models.PostgresqlDb;
 using CinephoriaServer.API.Models.PostgresqlDb.Auth.AppUserDto;
 using CinephoriaServer.API.Services;
+using CinephoriaServer.API.Services.FavoriteMovie;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.ComponentModel.DataAnnotations;
@@ -18,12 +19,17 @@ namespace CinephoriaServer.API.Controllers
         private readonly IAuthService _authService;
         private readonly IImageService _imageService;
         private readonly IRoleService _roleService;
+        private readonly IMovieService _movieService;
+        private readonly IFavoriteMovieService _favoriteMovieService;
 
-        public AuthController(IAuthService authService, IImageService imageService, IRoleService roleService)
+        public AuthController(IAuthService authService, IImageService imageService, IRoleService roleService,
+            IMovieService movieService, IFavoriteMovieService favoriteMovieService)
         {
             _authService = authService;
             _imageService = imageService;
             _roleService = roleService;
+            _movieService = movieService;
+            _favoriteMovieService = favoriteMovieService;
         }
 
         /// <summary>
@@ -170,16 +176,44 @@ namespace CinephoriaServer.API.Controllers
         }
 
         /// <summary>
-        /// Récupère la liste de tous les utilisateurs enregistrés.
+        /// Récupère la liste des utilisateurs avec filtrage, pagination et tri.
         /// </summary>
-        /// <returns>Une liste d'utilisateurs avec leurs informations.</returns>
+        /// <param name="role">Filtre par rôle (optionnel).</param>
+        /// <param name="page">Numéro de page (défaut 1).</param>
+        /// <param name="pageSize">Taille de la page (défaut 10).</param>
+        /// <param name="sortBy">Champ de tri (optionnel).</param>
+        /// <param name="sortOrder">Ordre de tri ("asc" ou "desc", défaut "asc").</param>
+        /// <returns>Une liste paginée d'utilisateurs avec le nombre total.</returns>
         [HttpGet("users")]
-        public async Task<IActionResult> GetAllUsers()
+        [Authorize(Roles = "Admin,Employee")]
+        public async Task<IActionResult> GetAllUsers(
+            [FromQuery] string? role = null,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10,
+            [FromQuery] string? sortBy = null,
+            [FromQuery] string? sortOrder = "asc")
         {
             try
             {
-                var users = await _authService.GetAllUsersAsync();
-                return Ok(users);
+                var currentUserRole = User.FindFirst(ClaimTypes.Role)?.Value;
+
+                // Si l'utilisateur connecté est Employee, il ne peut voir que les utilisateurs avec rôle User
+                if (currentUserRole == UserRole.Employee.ToString())
+                {
+                    role = UserRole.User.ToString();
+                }
+
+                var (users, totalCount) = await _authService.GetUsersFilteredAsync(role, page, pageSize, sortBy, sortOrder);
+
+                // Retourner les utilisateurs avec des métadonnées de pagination
+                return Ok(new
+                {
+                    Users = users,
+                    TotalCount = totalCount,
+                    Page = page,
+                    PageSize = pageSize,
+                    TotalPages = (int)Math.Ceiling(totalCount / (double)pageSize)
+                });
             }
             catch (Exception ex)
             {
@@ -607,6 +641,75 @@ namespace CinephoriaServer.API.Controllers
             catch (Exception ex)
             {
                 return StatusCode(500, new { Message = "Une erreur inattendue s'est produite lors de la suppression de l'utilisateur." });
+            }
+        }
+
+        /// <summary>
+        /// Récupère la liste des films favoris d'un utilisateur spécifique.
+        /// </summary>
+        /// <param name="userId">L'identifiant de l'utilisateur.</param>
+        /// <returns>La liste des films favoris.</returns>
+        [HttpGet("users/{userId}/favorites")]
+        [Authorize(Roles = "Admin,Employee")]
+        public async Task<IActionResult> GetUserFavorites(string userId)
+        {
+            try
+            {
+                // Vérifier les autorisations
+                var currentUserRole = User.FindFirst(ClaimTypes.Role)?.Value;
+                var targetUser = await _authService.GetUserByIdAsync(userId);
+                if (targetUser == null)
+                {
+                    return NotFound(new { Message = "Utilisateur non trouvé." });
+                }
+
+                // Si l'utilisateur connecté est Employee, il ne peut voir que les utilisateurs avec rôle User
+                if (currentUserRole == UserRole.Employee.ToString() && targetUser.Role != UserRole.User)
+                {
+                    return StatusCode(403, new { Message = "Vous n'êtes autorisé à voir que les utilisateurs avec rôle User." });
+                }
+
+                var favorites = await _favoriteMovieService.GetUserFavoriteMoviesAsync(userId);
+                return Ok(favorites);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { Message = "Une erreur inattendue s'est produite lors de la récupération des favoris." });
+            }
+        }
+
+        /// <summary>
+        /// Récupère l'historique des films consultés par un utilisateur spécifique.
+        /// </summary>
+        /// <param name="userId">L'identifiant de l'utilisateur.</param>
+        /// <param name="limit">Nombre maximum de films à récupérer (optionnel).</param>
+        /// <returns>La liste des films consultés récemment.</returns>
+        [HttpGet("users/{userId}/history")]
+        [Authorize(Roles = "Admin,Employee")]
+        public async Task<IActionResult> GetUserHistory(string userId, [FromQuery] int? limit = null)
+        {
+            try
+            {
+                // Vérifier les autorisations
+                var currentUserRole = User.FindFirst(ClaimTypes.Role)?.Value;
+                var targetUser = await _authService.GetUserByIdAsync(userId);
+                if (targetUser == null)
+                {
+                    return NotFound(new { Message = "Utilisateur non trouvé." });
+                }
+
+                // Si l'utilisateur connecté est Employee, il ne peut voir que les utilisateurs avec rôle User
+                if (currentUserRole == UserRole.Employee.ToString() && targetUser.Role != UserRole.User)
+                {
+                    return StatusCode(403, new { Message = "Vous n'êtes autorisé à voir que les utilisateurs avec rôle User." });
+                }
+
+                var history = await _movieService.GetUserMovieHistoryAsync(userId, limit);
+                return Ok(history);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { Message = "Une erreur inattendue s'est produite lors de la récupération de l'historique." });
             }
         }
 

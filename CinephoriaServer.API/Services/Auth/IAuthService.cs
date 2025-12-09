@@ -64,6 +64,17 @@ namespace CinephoriaServer.API.Services
         Task<List<AppUserDto>> GetAllUsersAsync();
 
         /// <summary>
+        /// Récupère la liste des utilisateurs avec filtrage, pagination et tri.
+        /// </summary>
+        /// <param name="role">Filtre par rôle (optionnel).</param>
+        /// <param name="page">Numéro de page (défaut 1).</param>
+        /// <param name="pageSize">Taille de la page (défaut 10).</param>
+        /// <param name="sortBy">Champ de tri (optionnel).</param>
+        /// <param name="sortOrder">Ordre de tri ("asc" ou "desc", défaut "asc").</param>
+        /// <returns>Tuple contenant la liste des utilisateurs et le nombre total.</returns>
+        Task<(List<AppUserDto> Users, int TotalCount)> GetUsersFilteredAsync(string? role = null, int page = 1, int pageSize = 10, string? sortBy = null, string? sortOrder = "asc");
+
+        /// <summary>
         /// Récupère un utilisateur spécifique par son identifiant.
         /// </summary>
         /// <param name="AppUserId">L'identifiant de l'utilisateur.</param>
